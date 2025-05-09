@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Llavero Digital</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f1f1f1;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background-color: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 20px;
+      margin: 20px;
+    }
+    .salon-card {
+      background-color: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      transition: 0.3s;
+    }
+    .ocupado {
+      background-color: #f9b5b5 !important;
+    }
+    .btn {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .btn:hover {
+      background-color: #45a049;
+    }
+    .liberar {
+      background-color: #d9534f;
+      color: white;
+      border: none;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .liberar:hover {
+      background-color: #c9302c;
+    }
+    #configMenu {
+      margin: 10px;
+      display: none;
+      text-align: center;
+    }
+    .config-btn {
+      margin: 5px;
+    }
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+    }
+    .toast {
+      background-color: #333;
+      color: white;
+      padding: 10px 20px;
+      margin-top: 10px;
+      border-radius: 5px;
+      opacity: 0.95;
+      animation: fadeout 4s forwards;
+    }
+    @keyframes fadeout {
+      0% { opacity: 0.95; }
+      90% { opacity: 0.95; }
+      100% { opacity: 0; display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Llavero Digital</h1>
+    <button onclick="toggleConfiguraciones()" class="btn">Configuraciones</button>
+  </header>
+
+  <div id="configMenu">
+    <button class="btn config-btn" onclick="abrirHistorial()">Ver historial</button>
+    <button class="btn config-btn" onclick="descargarHistorial()">Descargar historial</button>
+    <button class="btn config-btn liberar" onclick="borrarHistorial()">Borrar historial</button>
+  </div>
+
+  <div class="container" id="salones"></div>
+
+  <div id="historialModal" style="display:none; padding: 20px; background-color: #fff; position: fixed; top: 50px; left: 50%; transform: translateX(-50%); max-width: 90%; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border-radius: 10px;">
+    <h2>Historial</h2>
+    <div id="historialContent"></div>
+    <button class="btn" onclick="cerrarHistorial()">Cerrar</button>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script>
+    const API_URL = "https://sheetdb.io/api/v1/8zct1kuizgk49";
+    const totalSalones = 60;
+    let estadoSalones = {};
+
+    window.onload = function () {
+      cargarSalones();
+    };
+
+    function cargarSalones() {
+      const container = document.getElementById("salones");
+      for (let i = 1; i <= totalSalones; i++) {
+        const card = document.createElement("div");
+        card.className = "salon-card";
+        card.id = `salon-${i}`;
+        card.innerHTML = `
+          <h3>Salón ${i}</h3>
+          <div id="info-${i}">
+            <button class="btn" onclick="ocupar(${i})">Ocupar</button>
+          </div>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    function toggleConfiguraciones() {
+      const menu = document.getElementById("configMenu");
+      menu.style.display = menu.style.display === "none" ? "block" : "none";
+    }
+
+    function abrirHistorial() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          let historialHTML = "<table><tr><th>Salón</th><th>Docente</th><th>Entrada</th><th>Salida</th></tr>";
+          data.forEach(row => {
+            historialHTML += `
+              <tr>
+                <td>${row.salon}</td>
+                <td>${row.docente}</td>
+                <td>${row.entrada}</td>
+                <td>${row.salida || "En curso"}</td>
+              </tr>
+            `;
+          });
+          historialHTML += "</table>";
+          document.getElementById("historialContent").innerHTML = historialHTML;
+          document.getElementById("historialModal").style.display = "block";
+        });
+    }
+
+    function cerrarHistorial() {
+      document.getElementById("historialModal").style.display = "none";
+    }
+
+    function descargarHistorial() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          let csv = "Salón,Docente,Entrada,Salida\n";
+          data.forEach(row => {
+            csv += `"${row.salon}","${row.docente}","${row.entrada}","${row.salida}"\n`;
+          });
+
+          const blob = new Blob([csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "historial.csv";
+          a.click();
+          URL.revokeObjectURL(url);
+
+          mostrarToast("Historial descargado");
+        });
+    }
+
+    function borrarHistorial() {
+      if (!confirm("¿Estás seguro de que deseas borrar todo el historial?")) return;
+      fetch(API_URL + "/all", {
+        method: "DELETE"
+      }).then(() => {
+        cerrarHistorial();
+        mostrarToast("Historial borrado");
+      });
+    }
+
+    function ocupar(num) {
+      const docente = prompt("Ingrese nombre o código del docente:");
+      if (!docente) return;
+
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          const ocupadoEnDB = data.find(row =>
+            row.docente.toLowerCase() === docente.toLowerCase() && !row.salida
+          );
+
+          if (ocupadoEnDB) {
+            alert(`El docente "${docente}" ya está registrado como ocupando el ${ocupadoEnDB.salon}.`);
+            return;
+          }
+
+          const entrada = new Date().toLocaleString();
+          estadoSalones[num] = { docente, entrada };
+
+          const card = document.getElementById(`salon-${num}`);
+          card.classList.add("ocupado");
+          document.getElementById(`info-${num}`).innerHTML = `
+            <strong>${docente}</strong><br>Entrada: ${entrada}
+            <br><button class="liberar" onclick="liberar(${num})">Liberar</button>
+          `;
+          mostrarToast(`Salón ${num} ocupado por ${docente}`);
+        });
+    }
+
+    function liberar(num) {
+      const docenteIngresado = prompt("Para liberar, ingrese nuevamente su nombre o código:");
+      const docenteRegistrado = estadoSalones[num].docente;
+
+      if (!docenteIngresado) return;
+      if (docenteIngresado.toLowerCase().trim() !== docenteRegistrado.toLowerCase().trim()) {
+        alert("El nombre o código no coincide con quien ocupó este salón.");
+        return;
+      }
+
+      const salida = new Date().toLocaleString();
+      const entrada = estadoSalones[num].entrada;
+
+      fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          salon: num,
+          docente: docenteRegistrado,
+          entrada: entrada,
+          salida: salida
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }).then(() => {
+        const card = document.getElementById(`salon-${num}`);
+        card.classList.remove("ocupado");
+        document.getElementById(`info-${num}`).innerHTML = `
+          <button class="btn" onclick="ocupar(${num})">Ocupar</button>
+        `;
+        delete estadoSalones[num];
+        mostrarToast(`Salón ${num} liberado`);
+      });
+    }
+
+    function mostrarToast(mensaje) {
+      const contenedor = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = mensaje;
+      contenedor.appendChild(toast);
+      setTimeout(() => {
+        contenedor.removeChild(toast);
+      }, 4000);
+    }
+  </script>
+
+  <footer style="text-align: center; padding: 20px; font-size: 14px;">
+    <h5>Creado y desarrollado por Robinson Chagas</h5>
+  </footer>
+
+</body>
+</html>
